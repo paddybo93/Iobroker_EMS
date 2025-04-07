@@ -47,10 +47,10 @@ const path = '0_userdata.0.EMS.'                        // Pfad der Variablen
 
 let Messstellen = [];                                   // Array für Messstellen Daten
 const sql_connection= mysql.createConnection({           //SQL Verbindungsparameter
-  host: "192.168.2.106",
+  host: "x.x.x.x",
   port: '3306',
   user: "paddy",
-  password: "123456",
+  password: "****",
   database: "Energie_15min"
 });
 
@@ -65,7 +65,7 @@ const heute = new Date();
 
 // Hier alle Messstellen eintragen
 Messstellen.push({ name: 'test1', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.173145652.state'/*State of Total energy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1});
-Messstellen.push({ name: 'twst2', max: 1, zaehler: '0_userdata.0.EMS.dummy'/*dummy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1 });
+Messstellen.push({ name: 'twst2', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.3562582910.state'/*State of Total eingespeist*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 24 });
 
 
 
@@ -229,36 +229,43 @@ async function Berechnung()
         {
             var Warnung=getState(path + Messstellen[i].name + "_Warnung").val;
             if(Warnung==0){
-             sendTo('telegram.0', "Überwacungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");
+             sendTo('telegram.0', "Überwachungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");
              setState(path + Messstellen[i].name + "_Warnung",1); 
             }
         }
     }
-    else
-    {
-        setState(path + Messstellen[i].name + "_ueberwachungszaehler",0);                                           //Überwacungszeit zurücksetzen
-    }
+
 
     if(diff_15m>Messstellen[i].max)                                                             // wenn größer als max Mittelwert eintragen
     {
 
         var last_time = getState(path + Messstellen[i].name + "_ueberwachungszaehler").val;     //Überwacungszähler auslesen
+        if (last_time > 0){
+        var time_now = heute.getTime();  
         last_time=last_time*4;                                                                  //Umrechnung auf Stunden
         last_time=last_time*60;                                                                 //Umrechnung auf min
         last_time=last_time*60;                                                                 //Umrechnung auf Sek
         last_time=last_time*1000;                                                               //Umrechnung auf ms
+        last_time=time_now-last_time;
+        }
+        else{
+            var time_now = heute.getTime();  
+            last_time=time_now;
+        }
+        console.log("letzte Zeit: " + last_time);
 
 
-        var time_now = heute.getTime();                                                         // Millisekunden seit 1.1.1970
+        console.log("jetzt: " + time_now);
         var time_diff = time_now - last_time;
         time_diff=time_diff/1000;                                                               //in Sekunden umrechnen
         time_diff=time_diff/60;                                                                 //in Minuten umrechnen
         time_diff=time_diff/60;                                                                 //in Stunden umrechnen
-        var theor_Anzahl = time_diff*4;                                                          //Anzahl theoretisch
+        console.log("zeitdifferenz: " + time_diff);
+        var theor_Anzahl = time_diff/4;                                                          //Anzahl theoretisch
         console.log("Fehlende Werte: " + theor_Anzahl);
         if (theor_Anzahl>0)
         {
-        if((diff_15m/theor_Anzahl>Messstellen[i].max))                                          //wenn Durchschnitt immernoch über max
+        if((diff_15m/theor_Anzahl)>Messstellen[i].max)                                        //wenn Durchschnitt immernoch über max
         {
                                 
             try {
@@ -268,6 +275,7 @@ async function Berechnung()
                             }
           
             diff_15m=temp1*theor_Anzahl;                                                         //Durchschnittswert mal fehlende Zählwerte
+
         }
 
 
@@ -281,8 +289,10 @@ async function Berechnung()
                             }
           
             diff_15m=temp1;                                                                       //Durchschnittswert eintragen
+ 
 
         }
+
 
 
     }
@@ -294,8 +304,9 @@ async function Berechnung()
         } catch (error) {
                          console.log(error);
                     }
-          
+            sendTo('telegram.0', "Zählerüberlauf Energiezähler " + Messstellen[i].name);
             diff_15m=temp1;                                                                 //Durchschnittswert eintragen
+            
 
     }
 
@@ -303,6 +314,11 @@ async function Berechnung()
     console.log("Messstelle " +  Messstellen[i].name + ": 15 min Differenz =: " + diff_15m);
     console.log("Messstelle " +  Messstellen[i].name + ": letzter Wert =: " + letzter_wert);
 
+
+if( diff_15m>0){
+            setState(path + Messstellen[i].name + "_ueberwachungszaehler",0);                                           //Überwacungszeit zurücksetzen
+            setState(path + Messstellen[i].name + "_Warnung",0); 
+}
 
     setState(path + Messstellen[i].name + "_Diff_15m", diff_15m);
     setState(path + Messstellen[i].name + "_letzter_Wert", aktueller_wert);
@@ -313,7 +329,7 @@ async function Berechnung()
 }
 
 // ---------------------Energieberechnung alle 15 min----------------------------
-schedule('*/1 * * * *', function () {
+schedule('*/15 * * * *', function () {
 Berechnung();
 
 })
