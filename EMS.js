@@ -47,11 +47,11 @@ const path = '0_userdata.0.EMS.'                        // Pfad der Variablen
 
 let Messstellen = [];                                   // Array für Messstellen Daten
 const sql_connection= mysql.createConnection({           //SQL Verbindungsparameter
-  host: "*****",					// IP Adresse der SQL Datenbank
+  host: "192.168.2.106",
   port: '3306',
-  user: "user",					// User der DB
-  password: "****",				// Password des DB USers
-  database: "Energie_15min"			// Datenbank Name
+  user: "paddy",
+  password: "123456",
+  database: "Energie_15min"
 });
 
 let sql_settings_15m                                    
@@ -65,7 +65,7 @@ const heute = new Date();
 
 // Hier alle Messstellen eintragen
 Messstellen.push({ name: 'test1', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.173145652.state'/*State of Total energy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1});
-Messstellen.push({ name: 'twst2', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.3562582910.state'/*State of Total eingespeist*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 24 });
+Messstellen.push({ name: 'twst2', max: 1, zaehler: '0_userdata.0.EMS.dummy'/*dummy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1 });
 
 
 
@@ -76,10 +76,12 @@ var sql_abfrage_avg = function (messstelle) {
     return new Promise(function (resolve, reject) {
         var sql = "SELECT avg(val) as val FROM ts_number WHERE id = (select id from datapoints where name =\"" + messstelle   + "\") ORDER BY ts DESC LIMIT 192";   
         sql_connection.query(sql, function (err, result) {
+            console.log("avg query: " + sql);
             if (err){
                  resolve(0);
             }
             else  {
+                console.log("AVG result: " + result[0].val)
                 resolve(result[0].val);
             }
         });
@@ -234,6 +236,8 @@ async function Berechnung()
         time_diff=time_diff/60;                                                                 //in Minuten umrechnen
         time_diff=time_diff/60;                                                                 //in Stunden umrechnen
         var theor_Anzahl = time_diff*4                                                          //Anzahl theoretisch
+        if (theor_Anzahl>0)
+        {
         if((diff_15m/theor_Anzahl>Messstellen[i].max))                                          //wenn Durchschnitt immernoch über max
         {
                                 
@@ -246,6 +250,19 @@ async function Berechnung()
             diff_15m=temp1*theor_Anzahl;                                                         //Durchschnittswert mal fehlende Zählwerte
         }
 
+
+        
+        }
+        else{
+            try {
+                 var temp1 = await sql_abfrage_avg(Messstellen[i].name);                         //Durchschnitt aus DB laden
+                } catch (error) {
+                                console.log(error);
+                            }
+          
+            diff_15m=temp1;                                                                       //Durchschnittswert eintragen
+
+        }
 
 
     }
@@ -276,7 +293,7 @@ async function Berechnung()
 }
 
 // ---------------------Energieberechnung alle 15 min----------------------------
-schedule('*/15 * * * *', function () {
+schedule('*/1 * * * *', function () {
 Berechnung();
 
 })
