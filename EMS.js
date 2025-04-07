@@ -168,10 +168,14 @@ for (var i = 0; i<Messstellen.length; i++)
         });
 
 
+
+
         
 
 
     }
+
+
 
     if ( !existsState(path + Messstellen[i].name + '_ueberwachungszaehler' )) {             // Überewachungszähler anlegen
         createState(path + Messstellen[i].name + '_ueberwachungszaehler', 0, {
@@ -189,6 +193,18 @@ for (var i = 0; i<Messstellen.length; i++)
         
 
 
+    }
+
+    if ( !existsState(path + Messstellen[i].name + '_Warnung' )) {             // Warnung anlegen
+        createState(path + Messstellen[i].name + '_Warnung', initval, {
+         name: "Warnung",
+         type: "number",
+         role: "value",
+
+        
+         
+
+        });
     }
 
 }
@@ -211,8 +227,11 @@ async function Berechnung()
         setState(path + Messstellen[i].name + "_ueberwachungszaehler",ueb_count);
         if (ueb_count >= Messstellen[i].ueberwachungszeit)
         {
+            var Warnung=getState(path + Messstellen[i].name + "_Warnung").val;
+            if(Warnung==0){
              sendTo('telegram.0', "Überwacungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");
-             setState(path + Messstellen[i].name + "_ueberwachungszaehler",0); 
+             setState(path + Messstellen[i].name + "_Warnung",1); 
+            }
         }
     }
     else
@@ -235,7 +254,8 @@ async function Berechnung()
         time_diff=time_diff/1000;                                                               //in Sekunden umrechnen
         time_diff=time_diff/60;                                                                 //in Minuten umrechnen
         time_diff=time_diff/60;                                                                 //in Stunden umrechnen
-        var theor_Anzahl = time_diff*4                                                          //Anzahl theoretisch
+        var theor_Anzahl = time_diff*4;                                                          //Anzahl theoretisch
+        console.log("Fehlende Werte: " + theor_Anzahl);
         if (theor_Anzahl>0)
         {
         if((diff_15m/theor_Anzahl>Messstellen[i].max))                                          //wenn Durchschnitt immernoch über max
