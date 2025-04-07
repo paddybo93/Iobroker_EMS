@@ -210,6 +210,7 @@ async function Berechnung()
         if (ueb_count >= Messstellen[i].ueberwachungszeit)
         {
              sendTo('telegram.0', "Überwacungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");
+             setState(path + Messstellen[i].name + "_ueberwachungszaehler",0); 
         }
     }
     else
