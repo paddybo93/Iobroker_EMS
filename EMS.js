@@ -202,7 +202,7 @@ async function Berechnung()
     console.log("Messstelle " +  Messstellen[i].name + ": aktueller Wert =: " + aktueller_wert);
     diff_15m = (aktueller_wert - letzter_wert);                                                                     // Differenz bilden
     console.log("Messstelle " +  Messstellen[i].name + ": 15 min Differenz =: " + diff_15m);
-    if (diff_15m = 0)                                                                                               // Wenn sich Zähler nicht verändert hat
+    if (diff_15m == 0)                                                                                               // Wenn sich Zähler nicht verändert hat
     {
         var ueb_count = getState(path + Messstellen[i].name + "_ueberwachungszaehler").val;                         // Überwachungszähler erhöhen
         ueb_count=ueb_count + 1;
