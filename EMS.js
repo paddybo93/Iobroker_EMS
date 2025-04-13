@@ -226,7 +226,7 @@ async function Berechnung()
         var ueb_count = getState(path + Messstellen[i].name + "_ueberwachungszaehler").val;                         // Überwachungszähler erhöhen
         ueb_count=ueb_count + 1;
         setState(path + Messstellen[i].name + "_ueberwachungszaehler",ueb_count);
-        if (ueb_count >= Messstellen[i].ueberwachungszeit)
+        if (ueb_count*4 >= Messstellen[i].ueberwachungszeit)
         {
             var Warnung=getState(path + Messstellen[i].name + "_Warnung").val;
             if(Warnung==0){
