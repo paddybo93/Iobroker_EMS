@@ -29,6 +29,7 @@ Sprzifische Anpassungen:
     - Einheit: Erklärt sich von selbst
     - aufbewahrung_tage: wie lange sollen die Daten in der Datenbank vorgehalten werden
     - ueberwachungszeit: Überwachungszeit in Stunden
+    - timeout Art: 0=Kein Zähleränderung, 1=Timestamp überprüfung
 
 -In Zeile 98 und 120 muss die sql Instanz angepast werden (2x: 15min Differenz und letzter Wert)
 -In Zeile 212 muss die Einstellung für den Telegramm Versand eingestellt werden
@@ -47,10 +48,10 @@ const path = '0_userdata.0.EMS.'                        // Pfad der Variablen
 
 let Messstellen = [];                                   // Array für Messstellen Daten
 const sql_connection= mysql.createConnection({           //SQL Verbindungsparameter
-  host: "x.x.x.x",
+  host: "xxx.xxx.xxx.xxx",
   port: '3306',
-  user: "paddy",
-  password: "****",
+  user: "user",
+  password: "******",
   database: "Energie_15min"
 });
 
@@ -64,17 +65,17 @@ const heute = new Date();
 
 
 // Hier alle Messstellen eintragen
-Messstellen.push({ name: 'test1', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.173145652.state'/*State of Total energy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1});
-Messstellen.push({ name: 'twst2', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.3562582910.state'/*State of Total eingespeist*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 24 });
+Messstellen.push({ name: 'test1', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.173145652.state'/*State of Total energy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1, timeout_methode: 0});
+Messstellen.push({ name: 'twst2', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.3562582910.state'/*State of Total eingespeist*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 24, timeout_methode: 0 });
 
 
 
 
 
 
-var sql_abfrage_avg = function (messstelle) {
+var sql_abfrage_avg = function (messstelle,offset) {
     return new Promise(function (resolve, reject) {
-        var sql = "SELECT avg(val) as val FROM ts_number WHERE id = (select id from datapoints where name =\"" + messstelle   + "\") ORDER BY ts DESC LIMIT 192";   
+        var sql = "SELECT avg(val) as val FROM ts_number WHERE id = (select id from datapoints where name =\"" + messstelle   + "\") ORDER BY ts DESC LIMIT 192 OFFSET " + offset;   
         sql_connection.query(sql, function (err, result) {
             console.log("avg query: " + sql);
             if (err){
@@ -265,16 +266,17 @@ async function Berechnung()
         console.log("Fehlende Werte: " + theor_Anzahl);
         if (theor_Anzahl>0)
         {
-        if((diff_15m/theor_Anzahl)>Messstellen[i].max)                                        //wenn Durchschnitt immernoch über max
+        if((diff_15m/theor_Anzahl)>Messstellen[i].max)                                                               //wenn Durchschnitt immernoch über max
         {
                                 
             try {
-                 var temp1 = await sql_abfrage_avg(Messstellen[i].name);                         //Durchschnitt aus DB laden
+                 
+                 var temp1 = await sql_abfrage_avg(Messstellen[i].name,theor_Anzahl );                         //Durchschnitt aus DB laden
                 } catch (error) {
                                 console.log(error);
                             }
           
-            diff_15m=temp1*theor_Anzahl;                                                         //Durchschnittswert mal fehlende Zählwerte
+            diff_15m=temp1*theor_Anzahl;                                                                                //Durchschnittswert mal fehlende Zählwerte
 
         }
 
@@ -283,7 +285,7 @@ async function Berechnung()
         }
         else{
             try {
-                 var temp1 = await sql_abfrage_avg(Messstellen[i].name);                         //Durchschnitt aus DB laden
+                 var temp1 = await sql_abfrage_avg(Messstellen[i].name,theor_Anzahl);                                                   //Durchschnitt aus DB laden
                 } catch (error) {
                                 console.log(error);
                             }
@@ -300,7 +302,7 @@ async function Berechnung()
     if(diff_15m<0)                                                                              // wenn Differenz negativ
     {
         try {
-             var temp1 = await sql_abfrage_avg(Messstellen[i].name);                         //Durchschnitt aus DB laden
+             var temp1 = await sql_abfrage_avg(Messstellen[i].name, 0);                         //Durchschnitt aus DB laden
         } catch (error) {
                          console.log(error);
                     }
