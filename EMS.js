@@ -17,13 +17,15 @@ Zählerüberlauf
 Wird ein Zählerüberlauf erkann (15min Differnez negativ), wird ebenfalls ein Druchschnitt aus der Datenbank gejolt und eingetragen
 
 Überwachung:
-Es kann eine Überwachungszeit eingestellt werden. Wenn sich der Zöhler über diese Zeit nicht ändert, wird eine Telegramm Nachricht gesendet
+Es kann eine Überwachungszeit eingestellt werden. Wenn sich der Zöhler über diese Zeit nicht ändert, wird eine Telegramm Nachricht gesendet. Es gibt zwei Überwachungsmodi: Prüfen, ob sich der Zählerstand ändert und Prüfen, wann der letztte Wert in IoBroker aufeglaufen ist (Timestamp).
+Die erste Methode kann sinnvoll sein, wenn man mit einem Sensor einen Impukszähler auswertet und mit z.B. ESP Home an IoBroker sendet. Wenn der Sensor defekt ist, wir der Wert in IoBroker zwar aktualisiert, aber der Zähler läuft nicht hoch.
+Die zweite Methode (Timestamp) ist sinnvoll, wenn man Zähler hat, direkt an IoBroker senden (z.B. Shelly) oder die auch längere Zeit nichts messen (z.B. ein Hauptzähler, wenn durch ein Balkonkraftwerk eingespeist wird).
 
 
 Sprzifische Anpassungen:
 
--SQl Logindaten müssen ab Zeile 48 angepasst werden
--Ab Zeile 66 werden die Messstellen  eingetragen: 
+-SQl Logindaten müssen ab Zeile 52 angepasst werden
+-Ab Zeile 70 werden die Messstellen  eingetragen: 
     - Name: Selbst definierter Name der Messstelle
     - max: Grenze für Plausibilität
     - Einheit: Erklärt sich von selbst
@@ -31,8 +33,8 @@ Sprzifische Anpassungen:
     - ueberwachungszeit: Überwachungszeit in Stunden
     - timeout Art: 0=Kein Zähleränderung, 1=Timestamp überprüfung
 
--In Zeile 98 und 120 muss die sql Instanz angepast werden (2x: 15min Differenz und letzter Wert)
--In Zeile 212 muss die Einstellung für den Telegramm Versand eingestellt werden
+-In Zeile 104 und 125 muss die sql Instanz angepast werden (2x: 15min Differenz und letzter Wert)
+-In Zeile 236 und 259 muss die Einstellung für den Telegramm Versand eingestellt werden
 
 
 
@@ -51,7 +53,7 @@ const sql_connection= mysql.createConnection({           //SQL Verbindungsparame
   host: "xxx.xxx.xxx.xxx",
   port: '3306',
   user: "user",
-  password: "******",
+  password: "xxxxxx",
   database: "Energie_15min"
 });
 
@@ -61,12 +63,12 @@ let letzter_wert = 0;
 let aktueller_wert = 0 
 let diff_15m = 0
 let id = "test"
-const heute = new Date(); 		
+let heute; 		
 
 
 // Hier alle Messstellen eintragen
-Messstellen.push({ name: 'test1', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.173145652.state'/*State of Total energy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1, timeout_methode: 0});
-Messstellen.push({ name: 'twst2', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.3562582910.state'/*State of Total eingespeist*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 24, timeout_methode: 0 });
+Messstellen.push({ name: 'test1', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.173145652.state'/*State of Total energy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1, timeout_methode: 1});
+Messstellen.push({ name: 'twst2', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.3562582910.state'/*State of Total eingespeist*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 24, timeout_methode: 1 });
 
 
 
@@ -141,8 +143,8 @@ for (var i = 0; i<Messstellen.length; i++)
     }
     
  
-    if ( !existsState(path + Messstellen[i].name + '_Diff_15m' )) {                 // Diff_15m anlegen
-        createState(path + Messstellen[i].name + '_Diff_15m', 0, {
+    if ( !existsState(path + Messstellen[i].name + '.Diff_15m' )) {                 // Diff_15m anlegen
+        createState(path + Messstellen[i].name + '.Diff_15m', 0, {
          name: "Diff_15m",
          type: "number",
          role: "value",
@@ -156,8 +158,8 @@ for (var i = 0; i<Messstellen.length; i++)
 
     var initval = getState(Messstellen[i].zaehler).val;
    
-    if ( !existsState(path + Messstellen[i].name + '_letzter_Wert' )) {             // letzter_Wert anlegen
-        createState(path + Messstellen[i].name + '_letzter_Wert', initval, {
+    if ( !existsState(path + Messstellen[i].name + '.letzter_Wert' )) {             // letzter_Wert anlegen
+        createState(path + Messstellen[i].name + '.letzter_Wert', initval, {
          name: "letzter_Wert",
          type: "number",
          role: "value",
@@ -178,9 +180,9 @@ for (var i = 0; i<Messstellen.length; i++)
 
 
 
-    if ( !existsState(path + Messstellen[i].name + '_ueberwachungszaehler' )) {             // Überewachungszähler anlegen
-        createState(path + Messstellen[i].name + '_ueberwachungszaehler', 0, {
-         name: "_ueberwachungszaehler",
+    if ( !existsState(path + Messstellen[i].name + '.ueberwachungszaehler' )) {             // Überewachungszähler anlegen
+        createState(path + Messstellen[i].name + '.ueberwachungszaehler', 0, {
+         name: "ueberwachungszaehler",
          type: "number",
          role: "value"
          
@@ -196,8 +198,8 @@ for (var i = 0; i<Messstellen.length; i++)
 
     }
 
-    if ( !existsState(path + Messstellen[i].name + '_Warnung' )) {             // Warnung anlegen
-        createState(path + Messstellen[i].name + '_Warnung', initval, {
+    if ( !existsState(path + Messstellen[i].name + '.Warnung' )) {             // Warnung anlegen
+        createState(path + Messstellen[i].name + '.Warnung', 0, {
          name: "Warnung",
          type: "number",
          role: "value",
@@ -214,24 +216,48 @@ async function Berechnung()
 
     for (var i = 0; i<Messstellen.length; i++)                                                                      //jede Messstelle berechnen
     {
-    id = path + Messstellen[i].name + '_letzter_Wert';                                                              //Variablenname letzter Wert zusammenstellen
+    id = path + Messstellen[i].name + '.letzter_Wert';                                                              //Variablenname letzter Wert zusammenstellen
     letzter_wert=getState(id).val;                                                                                  //letzten Zählwert auslesen                                                   
     console.log("Messstelle " +  Messstellen[i].name + ": letzter Wert vor Berechnung =: " + letzter_wert);
     aktueller_wert=getState(Messstellen[i].zaehler).val;                                                            // aktuellen Zählerstand auslesen
     console.log("Messstelle " +  Messstellen[i].name + ": aktueller Wert =: " + aktueller_wert);
     diff_15m = (aktueller_wert - letzter_wert);                                                                     // Differenz bilden
     console.log("Messstelle " +  Messstellen[i].name + ": 15 min Differenz =: " + diff_15m);
+    if(Messstellen[i].timeout_methode==0){
     if (diff_15m == 0)                                                                                               // Wenn sich Zähler nicht verändert hat
     {
-        var ueb_count = getState(path + Messstellen[i].name + "_ueberwachungszaehler").val;                         // Überwachungszähler erhöhen
+        var ueb_count = getState(path + Messstellen[i].name + ".ueberwachungszaehler").val;                         // Überwachungszähler erhöhen
         ueb_count=ueb_count + 1;
-        setState(path + Messstellen[i].name + "_ueberwachungszaehler",ueb_count);
-        if (ueb_count*4 >= Messstellen[i].ueberwachungszeit)
+        setState(path + Messstellen[i].name + ".ueberwachungszaehler",ueb_count);
+        if (ueb_count >= Messstellen[i].ueberwachungszeit/4)
         {
-            var Warnung=getState(path + Messstellen[i].name + "_Warnung").val;
+            var Warnung=getState(path + Messstellen[i].name + ".Warnung").val;
             if(Warnung==0){
              sendTo('telegram.0', "Überwachungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");
-             setState(path + Messstellen[i].name + "_Warnung",1); 
+             setState(path + Messstellen[i].name + ".Warnung",1); 
+            }
+        }
+    }
+    }
+
+    if(Messstellen[i].timeout_methode==1){
+        var last_TS = getState(Messstellen[i].zaehler).ts;
+        console.log("last TS= " + last_TS);
+        heute = new Date();
+        var time_now = heute.getTime();
+     
+        console.log("time now= " + time_now);
+        var ueb_count1 = time_now-last_TS;
+        ueb_count1 = ueb_count1/1000/60/60; 
+        console.log("ueb_count= " + ueb_count1);
+        setState(path + Messstellen[i].name + ".ueberwachungszaehler",ueb_count1);
+
+        if (ueb_count1 >= Messstellen[i].ueberwachungszeit*4)
+        {
+            var Warnung=getState(path + Messstellen[i].name + ".Warnung").val;
+            if(Warnung==0){
+             sendTo('telegram.0', "Überwachungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");
+             setState(path + Messstellen[i].name + ".Warnung",1); 
             }
         }
     }
@@ -239,64 +265,66 @@ async function Berechnung()
 
     if(diff_15m>Messstellen[i].max)                                                             // wenn größer als max Mittelwert eintragen
     {
+       
+            var last_time = getState(path + Messstellen[i].name + ".ueberwachungszaehler").val;     //Überwacungszähler auslesen
+            if (last_time > 0){
+                heute = new Date();
+                var time_now = heute.getTime();  
+                last_time=last_time*4;                                                                  //Umrechnung auf Stunden
+                last_time=last_time*60;                                                                 //Umrechnung auf min
+                last_time=last_time*60;                                                                 //Umrechnung auf Sek
+                last_time=last_time*1000;                                                               //Umrechnung auf ms
+                last_time=time_now-last_time;
+            }
+            else{
+                heute = new Date();
+                var time_now = heute.getTime();  
+                last_time=time_now;
+            }
+                console.log("letzte Zeit: " + last_time);
+                console.log("jetzt: " + time_now);
+                var time_diff = time_now - last_time;
+                time_diff=time_diff/1000;                                                               //in Sekunden umrechnen
+                time_diff=time_diff/60;                                                                 //in Minuten umrechnen
+                time_diff=time_diff/60;                                                                 //in Stunden umrechnen
+                console.log("zeitdifferenz: " + time_diff);
+                var theor_Anzahl = time_diff/4;                                                          //Anzahl theoretisch
+                console.log("Fehlende Werte: " + theor_Anzahl);
 
-        var last_time = getState(path + Messstellen[i].name + "_ueberwachungszaehler").val;     //Überwacungszähler auslesen
-        if (last_time > 0){
-        var time_now = heute.getTime();  
-        last_time=last_time*4;                                                                  //Umrechnung auf Stunden
-        last_time=last_time*60;                                                                 //Umrechnung auf min
-        last_time=last_time*60;                                                                 //Umrechnung auf Sek
-        last_time=last_time*1000;                                                               //Umrechnung auf ms
-        last_time=time_now-last_time;
-        }
-        else{
-            var time_now = heute.getTime();  
-            last_time=time_now;
-        }
-        console.log("letzte Zeit: " + last_time);
-
-
-        console.log("jetzt: " + time_now);
-        var time_diff = time_now - last_time;
-        time_diff=time_diff/1000;                                                               //in Sekunden umrechnen
-        time_diff=time_diff/60;                                                                 //in Minuten umrechnen
-        time_diff=time_diff/60;                                                                 //in Stunden umrechnen
-        console.log("zeitdifferenz: " + time_diff);
-        var theor_Anzahl = time_diff/4;                                                          //Anzahl theoretisch
-        console.log("Fehlende Werte: " + theor_Anzahl);
-        if (theor_Anzahl>0)
-        {
-        if((diff_15m/theor_Anzahl)>Messstellen[i].max)                                                               //wenn Durchschnitt immernoch über max
-        {
+            if (theor_Anzahl>0){
+                if((diff_15m/theor_Anzahl)>Messstellen[i].max) {                                                              //wenn Durchschnitt immernoch über max
+        
                                 
-            try {
+                  try {
                  
-                 var temp1 = await sql_abfrage_avg(Messstellen[i].name,theor_Anzahl );                         //Durchschnitt aus DB laden
-                } catch (error) {
+                        var temp1 = await sql_abfrage_avg(Messstellen[i].name,theor_Anzahl );                         //Durchschnitt aus DB laden
+                     } catch (error) {
                                 console.log(error);
                             }
           
-            diff_15m=temp1*theor_Anzahl;                                                                                //Durchschnittswert mal fehlende Zählwerte
+                    diff_15m=temp1*theor_Anzahl;                                                                                //Durchschnittswert mal fehlende Zählwerte
 
-        }
+                }
 
 
         
-        }
-        else{
-            try {
+            }
+            else{
+                try {
                  var temp1 = await sql_abfrage_avg(Messstellen[i].name,theor_Anzahl);                                                   //Durchschnitt aus DB laden
                 } catch (error) {
                                 console.log(error);
                             }
           
-            diff_15m=temp1;                                                                       //Durchschnittswert eintragen
+                diff_15m=temp1;                                                                       //Durchschnittswert eintragen
  
 
-        }
+             }
 
 
+        
 
+ 
     }
 
     if(diff_15m<0)                                                                              // wenn Differenz negativ
@@ -318,12 +346,12 @@ async function Berechnung()
 
 
 if( diff_15m>0){
-            setState(path + Messstellen[i].name + "_ueberwachungszaehler",0);                                           //Überwacungszeit zurücksetzen
-            setState(path + Messstellen[i].name + "_Warnung",0); 
+            setState(path + Messstellen[i].name + ".ueberwachungszaehler",0);                                           //Überwacungszeit zurücksetzen
+            setState(path + Messstellen[i].name + ".Warnung",0); 
 }
 
-    setState(path + Messstellen[i].name + "_Diff_15m", diff_15m);
-    setState(path + Messstellen[i].name + "_letzter_Wert", aktueller_wert);
+    setState(path + Messstellen[i].name + ".Diff_15m", diff_15m);
+    setState(path + Messstellen[i].name + ".letzter_Wert", aktueller_wert);
 
 }
 
