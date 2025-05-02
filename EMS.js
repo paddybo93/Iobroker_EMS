@@ -229,7 +229,7 @@ async function Berechnung()
         var ueb_count = getState(path + Messstellen[i].name + ".ueberwachungszaehler").val;                         // Überwachungszähler erhöhen
         ueb_count=ueb_count + 1;
         setState(path + Messstellen[i].name + ".ueberwachungszaehler",ueb_count);
-        if (ueb_count >= Messstellen[i].ueberwachungszeit/4)
+        if ((ueb_count/4) >= Messstellen[i].ueberwachungszeit)
         {
             var Warnung=getState(path + Messstellen[i].name + ".Warnung").val;
             if(Warnung==0){
@@ -350,6 +350,10 @@ if( diff_15m>0){
             setState(path + Messstellen[i].name + ".Warnung",0); 
 }
 
+if(Messstellen[i].einheit == "Wh")
+{
+    diff_15m=diff_15m/1000;
+}
     setState(path + Messstellen[i].name + ".Diff_15m", diff_15m);
     setState(path + Messstellen[i].name + ".letzter_Wert", aktueller_wert);
 
