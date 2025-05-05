@@ -22,7 +22,7 @@ Die erste Methode kann sinnvoll sein, wenn man mit einem Sensor einen Impukszäh
 Die zweite Methode (Timestamp) ist sinnvoll, wenn man Zähler hat, direkt an IoBroker senden (z.B. Shelly) oder die auch längere Zeit nichts messen (z.B. ein Hauptzähler, wenn durch ein Balkonkraftwerk eingespeist wird).
 
 
-Sprzifische Anpassungen:
+Spezifische Anpassungen:
 
 -SQl Logindaten müssen ab Zeile 52 angepasst werden
 -Ab Zeile 70 werden die Messstellen  eingetragen: 
@@ -33,8 +33,8 @@ Sprzifische Anpassungen:
     - ueberwachungszeit: Überwachungszeit in Stunden
     - timeout Art: 0=Kein Zähleränderung, 1=Timestamp überprüfung
 
--In Zeile 104 und 125 muss die sql Instanz angepast werden (2x: 15min Differenz und letzter Wert)
--In Zeile 236 und 259 muss die Einstellung für den Telegramm Versand eingestellt werden
+-In Zeile 130 und 151 muss die sql Instanz angepast werden (2x: 15min Differenz und letzter Wert)
+-In Zeile 252,275,284 und 353 muss die Einstellung für den Telegramm Versand eingestellt werden
 
 
 
@@ -69,6 +69,32 @@ let heute;
 // Hier alle Messstellen eintragen
 Messstellen.push({ name: 'test1', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.173145652.state'/*State of Total energy*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 1, timeout_methode: 1});
 Messstellen.push({ name: 'twst2', max: 10, zaehler: 'esphome.0.807D3A2691DB.Sensor.3562582910.state'/*State of Total eingespeist*/, einheit: 'kwh', aufbewahrung_tage: 365, ueberwachungszeit: 24, timeout_methode: 1 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -142,13 +168,20 @@ for (var i = 0; i<Messstellen.length; i++)
         }
     }
     
- 
+    let einheit;
+    if(Messstellen[i].einheit == "kWh" || Messstellen[i].einheit == "Wh"){
+         einheit = "kWh"
+    }
+    else{
+        einheit =  Messstellen[i].einheit;
+    }
+    
     if ( !existsState(path + Messstellen[i].name + '.Diff_15m' )) {                 // Diff_15m anlegen
         createState(path + Messstellen[i].name + '.Diff_15m', 0, {
          name: "Diff_15m",
          type: "number",
          role: "value",
-         unit: Messstellen[i].einheit,
+         unit: einheit,
          custom: sql_settings_15m
          
         });
@@ -170,12 +203,6 @@ for (var i = 0; i<Messstellen.length; i++)
 
         });
 
-
-
-
-        
-
-
     }
 
 
@@ -186,15 +213,7 @@ for (var i = 0; i<Messstellen.length; i++)
          type: "number",
          role: "value"
          
-         
-        
-         
-
         });
-
-
-        
-
 
     }
 
@@ -203,9 +222,6 @@ for (var i = 0; i<Messstellen.length; i++)
          name: "Warnung",
          type: "number",
          role: "value",
-
-        
-         
 
         });
     }
@@ -223,50 +239,50 @@ async function Berechnung()
     console.log("Messstelle " +  Messstellen[i].name + ": aktueller Wert =: " + aktueller_wert);
     diff_15m = (aktueller_wert - letzter_wert);                                                                     // Differenz bilden
     console.log("Messstelle " +  Messstellen[i].name + ": 15 min Differenz =: " + diff_15m);
-    if(Messstellen[i].timeout_methode==0){
-    if (diff_15m == 0)                                                                                               // Wenn sich Zähler nicht verändert hat
+    if(Messstellen[i].timeout_methode==0){                                                                           // Wenn Überwachungsmodus = 0
+    if (diff_15m == 0)                                                                                               // Wenn sich Zähler nicht verändert hat 
     {
         var ueb_count = getState(path + Messstellen[i].name + ".ueberwachungszaehler").val;                         // Überwachungszähler erhöhen
         ueb_count=ueb_count + 1;
-        setState(path + Messstellen[i].name + ".ueberwachungszaehler",ueb_count);
-        if ((ueb_count/4) >= Messstellen[i].ueberwachungszeit)
+        setState(path + Messstellen[i].name + ".ueberwachungszaehler",ueb_count);                                   // Überwachungszähler zurückschreiben
+        if ((ueb_count/4) >= Messstellen[i].ueberwachungszeit)                                                      // Wenn Überwachungszähler größer als parametrierte Zeit
         {
-            var Warnung=getState(path + Messstellen[i].name + ".Warnung").val;
-            if(Warnung==0){
-             sendTo('telegram.0', "Überwachungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");
-             setState(path + Messstellen[i].name + ".Warnung",1); 
+            var Warnung=getState(path + Messstellen[i].name + ".Warnung").val;                                      // Steht bereits Warnung an?            
+            if(Warnung==0){                                                                                         // Wenn Warnung noch nicht ansteht
+             sendTo('telegram.0', "Überwachungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");        // Meldung an User
+             setState(path + Messstellen[i].name + ".Warnung",1);                                                   // Warnung setzen
             }
         }
     }
     }
 
-    if(Messstellen[i].timeout_methode==1){
-        var last_TS = getState(Messstellen[i].zaehler).ts;
-        console.log("last TS= " + last_TS);
-        heute = new Date();
-        var time_now = heute.getTime();
+    if(Messstellen[i].timeout_methode==1){                                                                          // Wenn Überwachungsmodus = 1
+        var last_TS = getState(Messstellen[i].zaehler).ts;                                                          // Timestamp des letzen Zähler Wertes lesen
+        //console.log("last TS= " + last_TS);
+        heute = new Date();                                                                                         // Aktuellen Timestamp lesen
+        var time_now = heute.getTime();                                                                           
      
-        console.log("time now= " + time_now);
-        var ueb_count1 = time_now-last_TS;
-        ueb_count1 = ueb_count1/1000/60/60; 
-        console.log("ueb_count= " + ueb_count1);
-        setState(path + Messstellen[i].name + ".ueberwachungszaehler",ueb_count1);
+        //console.log("time now= " + time_now);
+        var ueb_count1 = time_now-last_TS;                                                                          // Differenz von Jetzt zum letzten Wert berechnen
+        ueb_count1 = ueb_count1/1000/60/60*4;                                                                       // In 15min umwandeln
+        //console.log("ueb_count= " + ueb_count1);
+        setState(path + Messstellen[i].name + ".ueberwachungszaehler",ueb_count1);                                  // Überwachungszähler setzen
 
-        if (ueb_count1 >= Messstellen[i].ueberwachungszeit*4)
+        if (ueb_count1 >= Messstellen[i].ueberwachungszeit*4)                                                         // Wenn Überwachungszähler > als Parametrierte Zeit                                         
         {
-            var Warnung=getState(path + Messstellen[i].name + ".Warnung").val;
+            var Warnung=getState(path + Messstellen[i].name + ".Warnung").val;                                      // Steht bereits Warnung an?   
             if(Warnung==0){
-             sendTo('telegram.0', "Überwachungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");
-             setState(path + Messstellen[i].name + ".Warnung",1); 
+             sendTo('telegram.0', "Überwachungszeit Energiezähler " + Messstellen[i].name + " abgelaufen!");        // Meldung an User
+             setState(path + Messstellen[i].name + ".Warnung",1);                                                   // Warnung setzen
             }
         }
     }
 
 
-    if(diff_15m>Messstellen[i].max)                                                             // wenn größer als max Mittelwert eintragen
+    if(diff_15m>Messstellen[i].max)                                                                             // wenn größer als max Mittelwert eintragen
     {
-       
-            var last_time = getState(path + Messstellen[i].name + ".ueberwachungszaehler").val;     //Überwacungszähler auslesen
+            sendTo('telegram.0', " Energiezähler " + Messstellen[i].name + " über MAX!");                   // Meldung an User
+            var last_time = getState(path + Messstellen[i].name + ".ueberwachungszaehler").val;             //Überwachungszähler auslesen
             if (last_time > 0){
                 heute = new Date();
                 var time_now = heute.getTime();  
